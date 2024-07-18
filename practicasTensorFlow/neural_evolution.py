@@ -3,8 +3,14 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow import keras
 import random
+import os
+from dotenv import load_dotenv
 
-seed = 68
+# Cargamos las variables de entorno
+load_dotenv(dotenv_path='./../variables.env')
+
+# set the seed
+seed = os.getenv('SEED')
 np.random.seed(seed)
 random.seed(seed)
 tf.random.set_seed(seed)

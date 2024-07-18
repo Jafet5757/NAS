@@ -3,9 +3,14 @@ from tensorflow.keras.datasets import fashion_mnist
 import matplotlib.pyplot as plt
 import numpy as np
 import random
+import os
+from dotenv import load_dotenv
+
+# Cargamos las variables de entorno
+load_dotenv(dotenv_path='./../variables.env')
 
 # set the seed
-seed = 63
+seed = os.getenv('SEED')
 np.random.seed(seed)
 tf.random.set_seed(seed)
 random.seed(seed)

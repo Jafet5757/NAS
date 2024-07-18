@@ -5,9 +5,13 @@ import random
 from tensorflow.keras.datasets import mnist
 import prettytable as pt
 import os
+from dotenv import load_dotenv
+
+# Cargamos las variables de entorno
+load_dotenv(dotenv_path='./../variables.env')
 
 # set the seed
-seed = 68
+seed = os.getenv('SEED')
 np.random.seed(seed)
 random.seed(seed)
 os.environ['PYTHONHASHSEED'] = str(seed)
@@ -186,6 +190,6 @@ if __name__ == '__main__':
 
 
   # create the genetic algorithm
-  ga = GeneticAlgorithm(20, 4, 100, 15, 0.05)
+  ga = GeneticAlgorithm(6, 4, 100, 5, 0.05)
   # run the genetic algorithm
   ga.run(X_train, y_train, X_test, y_test, 10)
