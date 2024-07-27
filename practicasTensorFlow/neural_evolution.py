@@ -107,7 +107,8 @@ if __name__ == '__main__':
   nn = NeuralNetwork()
 
   # add layers
-  #nn.add_layer(50, 'tanh')
+  nn.add_layer(50, 'tanh')
+  nn.add_layer(100, 'softplus')
 
   # load the dataset
   (X_train, y_train), (X_test, y_test) = mnist.load_data()

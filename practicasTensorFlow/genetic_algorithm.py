@@ -190,6 +190,6 @@ if __name__ == '__main__':
 
 
   # create the genetic algorithm
-  ga = GeneticAlgorithm(4, 4, 100, 6, 0.15)
+  ga = GeneticAlgorithm(4, 4, 100, 6, 0.05)
   # run the genetic algorithm
   ga.run(X_train, y_train, X_test, y_test, 10)
