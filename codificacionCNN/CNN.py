@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow.keras import layers, models
 import prettytable as pt
+import numpy as np
 
 class ConvolutionalNeuralNetwork:
   def __init__(self, epochs:int, batch_size:int):
@@ -44,6 +45,46 @@ class ConvolutionalNeuralNetwork:
     strides: strides of the layer
     """
     self.network.append({"filters":filters, "kernel_size":kernel_size, "activation":activation, "type":type, "padding":padding, "strides":strides})
+
+  def random_model(self, max_layers:int, max_filters:int, max_kernel_size:int):
+    """
+    Random initialization of the network, use stride = MaxPooling2D and NO use concatenate
+    max_layers: maximum number of layers
+    max_filters: maximum number of filters in a layer
+    max_kernel_size: maximum size of the kernel
+    """
+    # Generamos un número aleatorio de capas
+    n_layers = np.random.randint(1, max_layers)
+    # Si el numero es impar, suma 1
+    if n_layers % 2 != 0:
+      n_layers += 1
+
+    for i in range(int(n_layers/2)):
+      # Generamos la misma cantidad de convoluciones, deben ser simetricas y cunplir la misma cantidad de strides y pooling
+      # Generamos la primer mitad de la U-net
+      filters = np.random.randint(1, max_filters)
+      kernel_size_number = np.random.randint(1, max_kernel_size)
+      kernel_size = (kernel_size_number, kernel_size_number)
+      activation = np.random.choice(self.activations)
+      type = "Conv2D" # Por defecto
+      padding = "same" # Por defecto
+      strides = (2, 2) if i % 2 == 0 else (1, 1) # Si es par, hacemos un MaxPooling2D, si no, hacemos un Conv2D
+
+      self.network.append({"filters":filters, "kernel_size":kernel_size, "activation":activation, "type":type, "padding":padding, "strides":strides})
+
+    # Generamos la segunda mitad de la U-net (deconvolucion)
+    for i in range(int(n_layers/2)):
+      filters = np.random.randint(1, max_filters)
+      kernel_size_number = np.random.randint(1, max_kernel_size)
+      kernel_size = (kernel_size_number, kernel_size_number)
+      activation = np.random.choice(self.activations)
+      type = "Conv2DTranspose"
+      padding = "same" # Por defecto
+      strides = (2, 2) if i % 2 == 0 else (1, 1) # Si es par, hacemos un MaxPooling2D, si no, hacemos un Conv2DTranspose
+
+      self.network.append({"filters":filters, "kernel_size":kernel_size, "activation":activation, "type":type, "padding":padding, "strides":strides})
+
+      
 
   def compile(self, X_train:list, y_train:list, X_test:list, y_test:list, classes:int, bottleneck_layers:int=2, skip:int=2):
     """
@@ -155,7 +196,7 @@ if __name__ == '__main__':
   X_test = X_test.reshape((X_test.shape[0], 28, 28, 1))
 
   # Creamos la red neuronal
-  cnn = ConvolutionalNeuralNetwork(10, 64)
+  cnn = ConvolutionalNeuralNetwork(5, 64)
 
   # Añadimos las capas
   cnn.add_layer(32, (3, 3), 'relu', 'Conv2D')
