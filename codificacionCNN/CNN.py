@@ -33,6 +33,8 @@ class ConvolutionalNeuralNetwork:
       'epochs': epochs,
       'batch_size': batch_size
     }
+    self.accuracy = 0
+    self.loss = 0
 
   def add_layer(self, filters:int=32, kernel_size:tuple=(3, 3), activation:str="relu", type:str="Conv2D", padding:str="same", strides:tuple=(1, 1)):
     """
@@ -161,14 +163,14 @@ class ConvolutionalNeuralNetwork:
       # Evaluamos el modelo
       loss, accuracy = model.evaluate(X_test, y_test)
 
+      # Guardamos la precisión y la pérdida
+      self.accuracy = accuracy
+      self.loss = loss
+
       print('Accuracy:', accuracy)
       print('Loss:', loss)
     except Exception as e:
       print(e)
-      # Escribe el error en un documento
-      with open('error.txt', 'w') as f:
-        f.write(str(e))
-      return None, None
 
     return loss, accuracy
   
