@@ -16,6 +16,7 @@ seed = os.getenv('SEED')
 np.random.seed(seed)
 os.environ['PYTHONHASHSEED'] = str(seed)
 tf.random.set_seed(seed)
+random.seed(seed)
 
 
 class GeneticAlgorithm:
@@ -88,22 +89,23 @@ class GeneticAlgorithm:
     parent_one: first parent
     parent_two: second parent
     """
+    min_size = min(len(parent_one.network), len(parent_two.network))
     # Generate the number of crossover points
-    n = random.randint(1, len(parent_one.network) if len(parent_one.network) < len(parent_two.network) else len(parent_two.network))
+    n = random.randint(1, min_size - 1) if min_size > 1 else 1
     # Generate the crossover points
-    crossover_points = random.sample(range(1, len(parent_one.network)), n)
+    crossover_points = random.sample(range(1, min_size), n) if min_size > 1 else [0]
     crossover_points.sort()
     # Initialize the children
     child_one = CNN(epochs=5, batch_size=64)
     child_two = CNN(epochs=5, batch_size=64)
     # Crossover the parents
     parent = parent_one
-    for i in range(len(parent_one.network)):
+    for i in range(min_size):
       if i in crossover_points:
         parent = parent_two if parent == parent_one else parent_one
       child_one.network.append(parent.network[i])
-    parent = parent_one
-    for i in range(len(parent_one.network)):
+    parent = parent_two
+    for i in range(min_size):
       if i in crossover_points:
         parent = parent_two if parent == parent_one else parent_one
       child_two.network.append(parent.network[i])

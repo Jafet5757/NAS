@@ -1,5 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras import layers, models
+from tensorflow import keras
 import prettytable as pt
 import numpy as np
 
@@ -150,6 +151,7 @@ class ConvolutionalNeuralNetwork:
 
     model = models.Model(inputs=inputs, outputs=outputs)
     
+    self.compile_params['optimizer'] = keras.optimizers.Adam(learning_rate=0.001)
     # Compilamos el modelo
     model.compile(**self.compile_params)
 
