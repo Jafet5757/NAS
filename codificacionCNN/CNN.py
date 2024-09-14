@@ -110,6 +110,10 @@ class ConvolutionalNeuralNetwork:
     bottleneck_skiped = False
     deconvolution_stage = False
 
+    # Antes de compilar aplicamos la reparación genética
+    self.genetic_reparation(input_shape)
+
+    # Recorremos las capas de la red neuronal
     for (i, layer) in enumerate(self.network):
       if layer["type"] == "Conv2D":
         if i == 0:
@@ -172,9 +176,31 @@ class ConvolutionalNeuralNetwork:
       print('Accuracy:', accuracy)
       print('Loss:', loss)
     except Exception as e:
+      # Imprimimos la red neuronal
+      print(self)
+      # Imprimimos el error
       print(e)
+      # Lanzamos una excepción si hay un error
+      raise Exception("Error al compilar el modelo")
+    
+    # Liberamos la memoria de la GPU
+    tf.keras.backend.clear_session()
 
     return loss, accuracy
+  
+
+  def genetic_reparation(self, input_shape:tuple):
+    """ 
+    Reparación de la red neuronal, se encarga de reparar la red neuronal si hay un error
+    input_shape: forma de la entrada de la red neuronal
+    - Si la red no tiene de salida la misma forma (shape) que la entrada, se añade una capa de Conv2D con la misma forma 
+    """
+    # Obtenemos la forma de la salida de la red neuronal
+    output_shape = self.network[-1]["filters"]
+    # Si la forma de la salida no es la misma que la de la entrada, añadimos una capa de Conv2D
+    if output_shape != input_shape:
+      self.add_layer(input_shape[0], (3, 3), 'relu', 'Conv2D')
+    return self
   
   def __str__(self):
     table = pt.PrettyTable()

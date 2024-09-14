@@ -11,12 +11,21 @@ import time
 # Cargamos las variables de entorno
 load_dotenv(dotenv_path='./../variables.env')
 
-# set the seed
-seed = os.getenv('SEED')
-np.random.seed(seed)
+seed = 6153
+print('Seed:', seed)
+np.random.seed(int(seed))
 os.environ['PYTHONHASHSEED'] = str(seed)
 tf.random.set_seed(seed)
 random.seed(seed)
+
+# Configuramos el uso de la GPU
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    try:
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+    except RuntimeError as e:
+        print(e)
 
 
 class GeneticAlgorithm:
@@ -209,7 +218,7 @@ if __name__=="__main__":
   start_time = time.time()  # Get the start time
 
   # Create the genetic algorithm
-  ga = GeneticAlgorithm(population_size=4, max_layers=5, max_filters=256, max_kernel_size=5, generations=4, mutation_rate=0.1, classes=2, epochs=5, batch_size=64)
+  ga = GeneticAlgorithm(population_size=4, max_layers=5, max_filters=256, max_kernel_size=5, generations=2, mutation_rate=0.1, classes=2, epochs=5, batch_size=32)
 
   # Run the genetic algorithm
   ga.run(X_train, y_train, X_test, y_test)
