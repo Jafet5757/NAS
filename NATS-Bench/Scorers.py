@@ -13,16 +13,15 @@ import time
 os.environ['HOME'] = 'C:\\Users\\Jafet'
 api = create(None, 'tss', fast_mode=True, verbose=False)
 
-def gradient_scorer(network, device='cuda'):
-    network.to(device)
+def gradient_scorer(network):
     # Create synthetic data
-    input_tensor = torch.ones((1, 3, 32, 32)).float().to(device)
-    label_tensor = torch.tensor(1).unsqueeze(0).to(device)
+    input_tensor = torch.ones((1, 3, 32, 32)).float()
+    label_tensor = torch.tensor(1).unsqueeze(0)
     # Forward pass
     output = network(input_tensor)
     # Compute the loss
-    loss = nn.CrossEntropyLoss()(output[1], label_tensor).to(device)
-    torch.sum(loss).backward()
+    loss = nn.CrossEntropyLoss()(output[1], label_tensor)
+    torch.sum(loss).backward(retain_graph=True)
     
     # Compute the score
     tape=[]
@@ -32,7 +31,9 @@ def gradient_scorer(network, device='cuda'):
         param.grad.data.zero_() 
     tape = torch.cat(tape)
     
-    return np.log(torch.sum(tape).item()/torch.norm(tape).item())
+    
+    score = np.log(tape.sum().item()/torch.norm(tape).item())
+    return score
 
 
 def gradient_scorer_2(network, device='cuda'):

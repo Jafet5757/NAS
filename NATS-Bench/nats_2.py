@@ -14,6 +14,7 @@ import tensorflow as tf
 import torch.nn as nn
 import math
 import time
+import pandas as pd
 #%%
 os.environ['HOME'] = 'C:\\Users\\Jafet'
 api = create(None, 'tss', fast_mode=True, verbose=False)
@@ -59,11 +60,8 @@ def synflow_scorer_ones(model):
     input = torch.ones((1, 3, 32, 32)).float()
     output = model(input)
     
-    # hacemos retropropagación con crossentropy
-    loss_function = nn.CrossEntropyLoss()
-    target = torch.tensor(1).unsqueeze(0)
-    loss = loss_function(output[1], target)
-    torch.sum(loss).backward()
+    # hacemos retropropagación
+    torch.sum(output[1]).backward()
     
     # Compute the scores
     for name, param in model.named_parameters():
@@ -77,6 +75,28 @@ def synflow_scorer_ones(model):
     
     return total_score
 
+
+def gradient_scorer(network):
+    # Create synthetic data
+    input_tensor = torch.ones((1, 3, 32, 32)).float()
+    label_tensor = torch.tensor(1).unsqueeze(0)
+    # Forward pass
+    output = network(input_tensor)
+    # Compute the loss
+    loss = nn.CrossEntropyLoss()(output[1], label_tensor)
+    torch.sum(loss).backward(retain_graph=True)
+    
+    # Compute the score
+    tape=[]
+    for _, param in network.named_parameters():
+        tensor = torch.clone(param.grad).detach().abs_()
+        tape.append(tensor.flatten())
+        param.grad.data.zero_() 
+    tape = torch.cat(tape)
+    
+    
+    score = np.log(tape.sum().item()/torch.norm(tape).item())
+    return score
 
 def synflow_scorer_abs(model):
     
@@ -283,7 +303,7 @@ def cosine_estimator(tapes):
     cosine_estimation = cosine_estimation/(len(tapes)**2)
     return float(cosine_estimation)
 
-def score_nets(n_networks, batch_size, estimator, tapes_function, dataset='cifar10'):
+def score_nets(n_networks, batch_size, estimator, tapes_function, dataset='cifar10', index=range(100)):
     accs = []
     scores = []
     if dataset == 'cifar10':
@@ -298,8 +318,7 @@ def score_nets(n_networks, batch_size, estimator, tapes_function, dataset='cifar
     X_train_batch = X_train[indices]
     y_train_batch = y_train[indices]
     
-    index = random.randint(0, 10000)
-    for i in range(index, index + n_networks):
+    for i in index:
         config = api.get_net_config(i, dataset)
         network = get_cell_based_tiny_net(config)
         
@@ -314,12 +333,11 @@ def score_nets(n_networks, batch_size, estimator, tapes_function, dataset='cifar
 
 
 
-def score_nets_synflow(n_networks, synflow_scorer, dataset='cifar10'):
+def score_nets_synflow(n_networks, synflow_scorer, dataset='cifar10', index=range(100)):
     accs = []
     scores = []
     
-    index = random.randint(0, 10000)
-    for i in range(index, index + n_networks):
+    for i in index:
         config = api.get_net_config(i, dataset)
         network = get_cell_based_tiny_net(config)
         
@@ -335,8 +353,8 @@ def score_nets_jacobian(n_networks, dataset='cifar10'):
     accs = []
     scores = []
     
-    index = 0
-    for i in range(index, index + n_networks):
+    index = random.sample(range(15000), n_networks)
+    for i in index:
         config = api.get_net_config(i, dataset)
         network = get_cell_based_tiny_net(config)
         
@@ -344,6 +362,22 @@ def score_nets_jacobian(n_networks, dataset='cifar10'):
         accs.append(accuracy)
         
         score = calculate_jacobian_score(network)
+        scores.append(score)
+    
+    return accs, scores
+
+def score_nets_gradient_scorer(n_networks, dataset='cifar10', index=range(100)):
+    accs = []
+    scores = []
+    
+    for i in index:
+        config = api.get_net_config(i, dataset)
+        network = get_cell_based_tiny_net(config)
+        
+        accuracy = api.get_more_info(i, dataset)['test-accuracy']
+        accs.append(accuracy)
+        
+        score = gradient_scorer(network)
         scores.append(score)
     
     return accs, scores
@@ -360,15 +394,27 @@ def get_dispertion(scores, accs):
     dispertion = math.sqrt(sum([(x - mean_score) ** 2 for x in scores]) + sum([(y - mean_accuracy) ** 2 for y in accs]))
     return dispertion
 
+#%%
+def write_acc_and_scores(accs, scores, name="results"):
+    df = pd.DataFrame({'Accuracy': accs, 'Score': scores})
+    df.to_csv(name + '.csv', index=True)
+
 # Cantidad de redes
-gradiente = 1000
-synflow = 5
-jacobian = 5
+gradiente = 10000
+synflow = 10000
+grd_scorer = 10000
+general = 15000
+
+# Usamos los mismo índices para las tres pruebas
+index = random.sample(range(15000), general)
 
 #%% TESTING
 # start time
 start = time.time()
-accs, scores = score_nets(gradiente, 10, cosine_estimator, get_weight_tapes, 'cifar10')
+accs, scores = score_nets(gradiente, 2, cosine_estimator, get_weight_tapes, 'cifar10', index)
+
+# Escribir los resultados
+write_acc_and_scores(accs, scores, 'results_gradiente_cosine_estimator_cifar10')
 
 plt.scatter(scores, accs)
 plt.xlabel('Scores')
@@ -381,22 +427,28 @@ print(f'Time: {time.time() - start}')
 
 # %%
 # start time
-""" start = time.time()
-accs, scores = score_nets_synflow(synflow, synflow_scorer_abs, 'cifar10')
+start = time.time()
+accs, scores = score_nets_gradient_scorer(synflow, 'cifar10', index)
+
+# Escribir los resultados
+write_acc_and_scores(accs, scores, 'results_gradient_scorer_cifar10')
 
 plt.scatter(scores, accs)
 plt.xlabel('Scores')
 plt.ylabel('Accuracies')
-plt.title('Synflow abs estimator CIFAR10')
+plt.title('Gradient scorer CIFAR10')
 plt.show()
 print(f'Pearson correlation: {get_pearson_correlation(scores, accs)}')
 print(f'Spearman correlation: {get_spearman_correlation(scores, accs)}')
-print(f'Time: {time.time() - start}') """
+print(f'Time: {time.time() - start}')
 
 # %%
 # start time
 start = time.time()
-accs, scores = score_nets_synflow(synflow, synflow_scorer_ones, 'cifar10')
+accs, scores = score_nets_synflow(synflow, synflow_scorer_ones, 'cifar10', index)
+
+# Escribir los resultados
+write_acc_and_scores(accs, scores, 'results_synflow_ones_estimator_cifar10')
 
 plt.scatter(scores, accs)
 plt.xlabel('Scores')
@@ -410,7 +462,10 @@ print(f'Time: {time.time() - start}')
 # %%
 # start time
 start = time.time()
-accs, scores = score_nets(gradiente, 10, cosine_estimator, get_weight_tapes, 'cifar100')
+accs, scores = score_nets(gradiente, 2, cosine_estimator, get_weight_tapes, 'cifar100', index)
+
+# Escribir los resultados
+write_acc_and_scores(accs, scores, 'results_gradiente_cosine_estimator_cifar100')
 
 plt.scatter(scores, accs)
 plt.xlabel('Scores')
@@ -423,22 +478,28 @@ print(f'Time: {time.time() - start}')
 
 # %%
 # start time
-""" start = time.time()
-accs, scores = score_nets_synflow(synflow, synflow_scorer_abs, 'cifar100')
+start = time.time()
+accs, scores = score_nets_gradient_scorer(synflow, 'cifar100', index)
+
+# Escribir los resultados
+write_acc_and_scores(accs, scores, 'results_gradient_scorer_cifar100')
 
 plt.scatter(scores, accs)
 plt.xlabel('Scores')
 plt.ylabel('Accuracies')
-plt.title('Synflow abs estimator CIFAR100')
+plt.title('Gradient scorer CIFAR100')
 plt.show()
 print(f'Pearson correlation: {get_pearson_correlation(scores, accs)}')
 print(f'Spearman correlation: {get_spearman_correlation(scores, accs)}')
-print(f'Time: {time.time() - start}') """
+print(f'Time: {time.time() - start}')
 
 # %%
 # start time
 start = time.time()
-accs, scores = score_nets_synflow(synflow, synflow_scorer_ones, 'cifar100')
+accs, scores = score_nets_synflow(synflow, synflow_scorer_ones, 'cifar100', index)
+
+# Escribir los resultados
+write_acc_and_scores(accs, scores, 'results_synflow_ones_estimator_cifar100')
 
 plt.scatter(scores, accs)
 plt.xlabel('Scores')
@@ -458,30 +519,3 @@ plt.xlabel('Networks')
 plt.ylabel('Accuracies')
 plt.title('Accuracies sorted CIFAR100')
 plt.show()
-
-# %%
-# start time
-start = time.time()
-accs, scores = score_nets_jacobian(jacobian, 'cifar10')
-
-plt.scatter(accs, scores)
-plt.xlabel('Accuracies')
-plt.ylabel('Scores')
-plt.title('Jacobian estimator CIFAR10')
-plt.show()
-print(f'Pearson correlation: {get_pearson_correlation(scores, accs)}')
-print(f'Spearman correlation: {get_spearman_correlation(scores, accs)}')
-print(f'Time: {time.time() - start}')
-# %%
-# start time
-start = time.time()
-accs, scores = score_nets_jacobian(jacobian, 'cifar100')
-
-plt.scatter(accs, scores)
-plt.xlabel('Accuracies')
-plt.ylabel('Scores')
-plt.title('Jacobian estimator CIFAR100')
-plt.show()
-print(f'Pearson correlation: {get_pearson_correlation(scores, accs)}')
-print(f'Spearman correlation: {get_spearman_correlation(scores, accs)}')
-print(f'Time: {time.time() - start}')
